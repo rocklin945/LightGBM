@@ -220,15 +220,15 @@ FORCE_REJECT_CONDITIONS = {
 # 自动合并阈值（降低到0.6，更容易通过）
 AUTO_MERGE_THRESHOLD = 0.6
 
-# ==================== 文件路径 ====================
+# ==================== 文件路径（新的目录结构）====================
 
-DATA_DIR = 'd:/LightGBM/data'
-MODEL_DIR = 'd:/LightGBM/models'
+# 基础目录
+BASE_DIR = 'd:/LightGBM'
+DATA_DIR = f'{BASE_DIR}/data'
+MODEL_DIR = f'{BASE_DIR}/models'
 
+# 数据文件
 RAW_DATA_PATH = f'{DATA_DIR}/raw_mr_data.csv'
 LABELED_DATA_PATH = f'{DATA_DIR}/labeled_data.csv'
 TRAIN_DATA_PATH = f'{DATA_DIR}/train_data.csv'
 TEST_DATA_PATH = f'{DATA_DIR}/test_data.csv'
-
-MODEL_PATH = f'{MODEL_DIR}/mr_risk_model.txt'
-FEATURE_IMPORTANCE_PATH = f'{MODEL_DIR}/feature_importance.csv'
