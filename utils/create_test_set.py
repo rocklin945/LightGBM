@@ -8,8 +8,8 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import pandas as pd
 from datetime import datetime
-from generate_data import generate_mr_data
-from auto_label import auto_label_dataframe, print_statistics
+from utils.generate_data import generate_mr_data
+from utils.auto_label import auto_label_dataframe, print_statistics
 
 def create_test_set(n_samples=100, random_seed=None):
     """
