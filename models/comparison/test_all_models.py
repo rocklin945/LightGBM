@@ -174,7 +174,9 @@ def test_all_models(X_test, y_test):
             'auc': auc,
             'y_pred': y_pred,
             'y_pred_proba': y_pred_proba,
-            'cm': cm
+            'cm': cm,
+            'model': model,
+            'scaler': scaler
         }
     
     return results
@@ -195,16 +197,19 @@ def print_comparison_table(results):
 
 
 def visualize_comparison(results, y_test):
-    """生成对比图表"""
+    """生成对比图表（不包含混淆矩阵）"""
     print("\n" + "=" * 80)
     print("4. 生成对比图表")
     print("=" * 80)
     
-    fig = plt.figure(figsize=(18, 12))
-    gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
+    fig = plt.figure(figsize=(18, 10))
+    gs = fig.add_gridspec(2, 3, hspace=0.3, wspace=0.3)
     
     model_names = list(results.keys())
     colors = ['#3498db', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6', '#1abc9c']
+    
+    # 添加总标题
+    fig.suptitle('所有模型对比分析', fontsize=16, fontweight='bold')
     
     # 1. 准确率对比
     ax1 = fig.add_subplot(gs[0, 0])
@@ -295,54 +300,154 @@ def visualize_comparison(results, y_test):
         ax6.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.02,
                 f'{val:.3f}', ha='center', fontsize=8)
     
-    # 7-9. 混淆矩阵（显示前3个模型）
-    for idx, model_name in enumerate(model_names[:3]):
-        ax = fig.add_subplot(gs[2, idx])
-        cm = results[model_name]['cm']
-        cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
-        
-        ax.imshow(cm, cmap='Blues', alpha=0.8)
-        ax.set_xticks([0, 1])
-        ax.set_yticks([0, 1])
-        ax.set_xticklabels(['预测0', '预测1'], fontsize=9)
-        ax.set_yticklabels(['实际0', '实际1'], fontsize=9)
-        ax.set_title(f'{model_name} 混淆矩阵', fontsize=10, fontweight='bold')
-        
-        for i in range(2):
-            for j in range(2):
-                text_color = 'white' if cm[i, j] > cm.max() / 2 else 'black'
-                ax.text(j, i, f'{cm[i, j]}\n({cm_normalized[i, j]*100:.1f}%)',
-                       ha="center", va="center", color=text_color, fontsize=10)
-    
     output_path = f'{RESULTS_DIR}/comparison.png'
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     print(f"\n对比图表已保存到: {output_path}")
     plt.close()
 
 
-def visualize_individual_model(model_name, result, y_test):
-    """生成单个模型的测试结果图表"""
+def visualize_individual_model(model_name, result, y_test, model=None, scaler=None):
+    """生成单个模型的测试结果图表（布局与训练脚本一致）"""
     fig, axes = plt.subplots(2, 2, figsize=(14, 10))
     
-    # 1. 混淆矩阵
-    cm = result['cm']
-    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    # 添加总标题，注明模型名称
+    fig.suptitle(f'{model_name} 模型测试结果', fontsize=16, fontweight='bold', y=0.995)
     
-    axes[0, 0].imshow(cm, cmap='Blues', alpha=0.8)
-    axes[0, 0].set_xticks([0, 1])
-    axes[0, 0].set_yticks([0, 1])
-    axes[0, 0].set_xticklabels(['预测不合并', '预测合并'], fontsize=10)
-    axes[0, 0].set_yticklabels(['实际不合并', '实际合并'], fontsize=10)
-    axes[0, 0].set_title('混淆矩阵', fontsize=12, fontweight='bold')
+    # 1. 特征重要性（左上角）
+    if model_name == 'LightGBM' and model is not None:
+        # LightGBM 特征重要性
+        importance = model.feature_importance(importance_type='gain')
+        feature_names = model.feature_name()
+        
+        feature_df = pd.DataFrame({
+            'feature': feature_names,
+            'importance': importance,
+            'description': [FEATURE_DESCRIPTIONS.get(f, f) for f in feature_names]
+        }).sort_values('importance', ascending=False).head(15)
+        
+        y_pos = np.arange(len(feature_df))
+        axes[0, 0].barh(y_pos, feature_df['importance'].values, color='steelblue', edgecolor='black')
+        axes[0, 0].set_yticks(y_pos)
+        axes[0, 0].set_yticklabels(feature_df['description'].values, fontsize=8)
+        axes[0, 0].set_xlabel('重要性 (gain)', fontsize=10)
+        axes[0, 0].set_title('Top 15 特征重要性', fontsize=12, fontweight='bold')
+        axes[0, 0].invert_yaxis()
+        axes[0, 0].grid(axis='x', alpha=0.3)
+        
+    elif model_name == 'Logistic' and model is not None:
+        # Logistic Regression 特征系数
+        coefficients = model.coef_[0]
+        feature_names = ALL_FEATURES
+        
+        feature_df = pd.DataFrame({
+            'feature': feature_names,
+            'coefficient': coefficients,
+            'abs_coefficient': np.abs(coefficients),
+            'description': [FEATURE_DESCRIPTIONS.get(f, f) for f in feature_names]
+        }).sort_values('abs_coefficient', ascending=False).head(15)
+        
+        y_pos = np.arange(len(feature_df))
+        colors_bar = ['green' if c > 0 else 'red' for c in feature_df['coefficient'].values]
+        axes[0, 0].barh(y_pos, feature_df['abs_coefficient'].values, color=colors_bar, edgecolor='black', alpha=0.7)
+        axes[0, 0].set_yticks(y_pos)
+        axes[0, 0].set_yticklabels(feature_df['description'].values, fontsize=8)
+        axes[0, 0].set_xlabel('系数绝对值', fontsize=10)
+        axes[0, 0].set_title('Top 15 特征重要性 (绿=正向/红=负向)', fontsize=12, fontweight='bold')
+        axes[0, 0].invert_yaxis()
+        axes[0, 0].grid(axis='x', alpha=0.3)
+        
+    elif model_name == 'RandomForest' and model is not None:
+        # Random Forest 特征重要性
+        importance = model.feature_importances_
+        feature_names = ALL_FEATURES
+        
+        feature_df = pd.DataFrame({
+            'feature': feature_names,
+            'importance': importance,
+            'description': [FEATURE_DESCRIPTIONS.get(f, f) for f in feature_names]
+        }).sort_values('importance', ascending=False).head(15)
+        
+        y_pos = np.arange(len(feature_df))
+        axes[0, 0].barh(y_pos, feature_df['importance'].values, color='steelblue', edgecolor='black')
+        axes[0, 0].set_yticks(y_pos)
+        axes[0, 0].set_yticklabels(feature_df['description'].values, fontsize=8)
+        axes[0, 0].set_xlabel('重要性', fontsize=10)
+        axes[0, 0].set_title('Top 15 特征重要性', fontsize=12, fontweight='bold')
+        axes[0, 0].invert_yaxis()
+        axes[0, 0].grid(axis='x', alpha=0.3)
+        
+    elif model_name == 'MLP' and model is not None:
+        # MLP 特征重要性（使用第一层权重的绝对值平均）
+        if hasattr(model, 'coefs_'):
+            first_layer_weights = np.abs(model.coefs_[0])
+            feature_importance = first_layer_weights.mean(axis=1)
+            feature_names = ALL_FEATURES
+            
+            feature_df = pd.DataFrame({
+                'feature': feature_names,
+                'importance': feature_importance,
+                'description': [FEATURE_DESCRIPTIONS.get(f, f) for f in feature_names]
+            }).sort_values('importance', ascending=False).head(15)
+            
+            y_pos = np.arange(len(feature_df))
+            axes[0, 0].barh(y_pos, feature_df['importance'].values, color='steelblue', edgecolor='black')
+            axes[0, 0].set_yticks(y_pos)
+            axes[0, 0].set_yticklabels(feature_df['description'].values, fontsize=8)
+            axes[0, 0].set_xlabel('平均权重绝对值', fontsize=10)
+            axes[0, 0].set_title('Top 15 特征重要性（估计）', fontsize=12, fontweight='bold')
+            axes[0, 0].invert_yaxis()
+            axes[0, 0].grid(axis='x', alpha=0.3)
+    else:
+        # SVM 和 KNN 显示说明（与训练脚本一致）
+        axes[0, 0].axis('off')
+        
+        if model_name == 'SVM' and model is not None:
+            info_lines = [
+                'SVM 特征重要性说明',
+                '',
+                'SVM 使用核函数进行非线性映射',
+                '没有直接的特征重要性',
+                '',
+                f'支持向量数: {len(model.support_)}',
+                f'训练样本数: {model.n_support_.sum()}',
+            ]
+        elif model_name == 'KNN' and model is not None:
+            info_lines = [
+                'KNN 特征重要性说明',
+                '',
+                'KNN 是基于距离的非参数模型',
+                '没有直接的特征重要性',
+                '',
+                f'K 值: {model.n_neighbors}',
+                f'训练样本数: {model._fit_X.shape[0]}',
+            ]
+        else:
+            # 如果模型未加载，显示默认说明
+            info_lines = [
+                f'{model_name} 特征重要性说明',
+                '',
+                '模型未加载或无特征重要性',
+            ]
+        
+        y_pos = 0.95
+        for i, line in enumerate(info_lines):
+            if i == 0:
+                axes[0, 0].text(0.5, y_pos, line, fontsize=13, fontweight='bold',
+                               ha='center', va='top', transform=axes[0, 0].transAxes)
+            else:
+                axes[0, 0].text(0.1, y_pos, line, fontsize=11,
+                               ha='left', va='top', transform=axes[0, 0].transAxes)
+            y_pos -= 0.08
+        
+        # 添加一个矩形框
+        from matplotlib.patches import Rectangle
+        rect = Rectangle((0.05, 0.05), 0.9, 0.9, 
+                         fill=True, facecolor='lightgray', alpha=0.2,
+                         edgecolor='black', linewidth=2,
+                         transform=axes[0, 0].transAxes)
+        axes[0, 0].add_patch(rect)
     
-    for i in range(2):
-        for j in range(2):
-            text_color = 'white' if cm[i, j] > cm.max() / 2 else 'black'
-            axes[0, 0].text(j, i, f'{cm[i, j]}\n({cm_normalized[i, j]*100:.1f}%)',
-                           ha="center", va="center", color=text_color, 
-                           fontsize=14, fontweight='bold')
-    
-    # 2. 预测概率分布
+    # 2. 预测概率分布（右上角）
     y_pred_proba = result['y_pred_proba']
     proba_negative = y_pred_proba[y_test == 0]
     proba_positive = y_pred_proba[y_test == 1]
@@ -365,7 +470,25 @@ def visualize_individual_model(model_name, result, y_test):
     axes[0, 1].legend(loc='upper center', fontsize=9)
     axes[0, 1].grid(axis='y', alpha=0.3)
     
-    # 3. 评估指标
+    # 3. 混淆矩阵（左下角）
+    cm = result['cm']
+    cm_normalized = cm.astype('float') / cm.sum(axis=1)[:, np.newaxis]
+    
+    axes[1, 0].imshow(cm, cmap='Blues', alpha=0.8)
+    axes[1, 0].set_xticks([0, 1])
+    axes[1, 0].set_yticks([0, 1])
+    axes[1, 0].set_xticklabels(['预测不合并', '预测合并'], fontsize=10)
+    axes[1, 0].set_yticklabels(['实际不合并', '实际合并'], fontsize=10)
+    axes[1, 0].set_title('混淆矩阵', fontsize=12, fontweight='bold')
+    
+    for i in range(2):
+        for j in range(2):
+            text_color = 'white' if cm[i, j] > cm.max() / 2 else 'black'
+            axes[1, 0].text(j, i, f'{cm[i, j]}\n({cm_normalized[i, j]*100:.1f}%)',
+                           ha="center", va="center", color=text_color, 
+                           fontsize=14, fontweight='bold')
+    
+    # 4. 评估指标（右下角）
     metrics = ['准确率', '精确率', '召回率', 'F1', 'AUC']
     values = [
         result['accuracy'],
@@ -376,41 +499,24 @@ def visualize_individual_model(model_name, result, y_test):
     ]
     
     colors = ['#3498db', '#2ecc71', '#f39c12', '#e74c3c', '#9b59b6']
-    bars = axes[1, 0].bar(metrics, values, color=colors, edgecolor='black', alpha=0.8)
-    axes[1, 0].set_ylim([0, 1.05])
-    axes[1, 0].set_ylabel('分数', fontsize=10)
-    axes[1, 0].set_title('模型评估指标', fontsize=12, fontweight='bold')
-    axes[1, 0].axhline(y=0.8, color='gray', linestyle='--', alpha=0.7)
-    axes[1, 0].grid(axis='y', alpha=0.3)
+    bars = axes[1, 1].bar(metrics, values, color=colors, edgecolor='black', alpha=0.8)
+    axes[1, 1].set_ylim([0, 1.05])
+    axes[1, 1].set_ylabel('分数', fontsize=10)
+    axes[1, 1].set_title('模型评估指标', fontsize=12, fontweight='bold')
+    axes[1, 1].axhline(y=0.8, color='gray', linestyle='--', alpha=0.7, label='良好阈值(0.8)')
+    axes[1, 1].grid(axis='y', alpha=0.3)
+    axes[1, 1].legend(fontsize=8)
     
     for v, bar in zip(values, bars):
         height = bar.get_height()
-        axes[1, 0].text(bar.get_x() + bar.get_width()/2., height + 0.02,
+        axes[1, 1].text(bar.get_x() + bar.get_width()/2., height + 0.02,
                        f'{v:.3f}', ha='center', va='bottom', fontsize=10, fontweight='bold')
-    
-    # 4. 预测结果统计
-    axes[1, 1].axis('off')
-    stats_text = f"""测试结果统计
-
-测试样本数: {len(y_test)}
-
-预测为可合并: {(result['y_pred'] == 1).sum()}
-预测为不可合并: {(result['y_pred'] == 0).sum()}
-
-实际可合并: {(y_test == 1).sum()}
-实际不可合并: {(y_test == 0).sum()}
-
-正确预测数: {(result['y_pred'] == y_test).sum()}
-错误预测数: {(result['y_pred'] != y_test).sum()}
-"""
-    axes[1, 1].text(0.1, 0.5, stats_text, fontsize=11, 
-                   verticalalignment='center', family='monospace')
-    axes[1, 1].set_title('测试结果统计', fontsize=12, fontweight='bold')
     
     plt.tight_layout()
     output_path = f'{RESULTS_DIR}/{model_name.lower()}_test.png'
     plt.savefig(output_path, dpi=150, bbox_inches='tight')
     print(f"  → {model_name} 测试结果已保存到: {output_path}")
+    plt.close()
     plt.close()
 
 
@@ -435,7 +541,9 @@ def main():
         print("5. 生成单个模型测试结果")
         print("=" * 80)
         for model_name, result in results.items():
-            visualize_individual_model(model_name, result, y_test)
+            visualize_individual_model(model_name, result, y_test, 
+                                      model=result.get('model'), 
+                                      scaler=result.get('scaler'))
         
         # 5. 生成对比图表
         visualize_comparison(results, y_test)
