@@ -227,8 +227,7 @@ def main():
     print("=" * 80)
     print(f"\n输出文件: {output_path}")
     print(f"\n下一步:")
-    print(f"  1. 运行: python utils/auto_label.py 自动标注")
-    print(f"  2. 运行: python 1_data_labeling.py 人工标注剩余数据")
+    print(f"运行: python utils/auto_label.py 自动标注")
 
 
 if __name__ == '__main__':
