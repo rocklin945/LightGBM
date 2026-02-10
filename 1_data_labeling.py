@@ -436,7 +436,7 @@ def main():
     
     if not os.path.exists(RAW_DATA_PATH):
         print("首次运行，创建200条示例数据...")
-        labeler.create_sample_data(n_samples=200)
+        labeler.create_sample_data(n_samples=500)
         print("\n✓ 数据创建完成！")
         print("\n建议: 先运行 python auto_label.py 自动标注大部分数据")
         print("然后再运行 python 1_data_labeling.py 标注剩余数据\n")
