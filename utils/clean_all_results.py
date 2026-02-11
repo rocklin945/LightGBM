@@ -58,8 +58,14 @@ def clean_model_results():
                 deleted_count += 1
             if delete_file(f'{model_dir}/scaler.pkl'):
                 deleted_count += 1
+        
+        # 删除 results 目录
+        results_dir = f'{model_dir}/results'
+        if os.path.exists(results_dir):
+            for file in os.listdir(results_dir):
+                if delete_file(os.path.join(results_dir, file)):
+                    deleted_count += 1
     
-    print("\n[2] results文件夹保留")
     
     # 3. 询问是否删除数据文件
     print("\n[3] 数据文件...")
