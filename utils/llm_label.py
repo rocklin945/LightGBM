@@ -186,42 +186,9 @@ def llm_label_batch(df, interval=0.5):
 
 
 def save_label_reasons(results, output_path):
-    """保存标注理由到文件"""
-    with open(output_path, 'w', encoding='utf-8') as f:
-        f.write("# MR自动合并标注理由说明\n\n")
-        f.write(f"标注时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-        f.write(f"总计: {len(results)} 条\n\n")
-        f.write("=" * 80 + "\n\n")
-        
-        # 按标签分类统计
-        can_merge = [r for r in results if r['label'] == 1]
-        cannot_merge = [r for r in results if r['label'] == 0]
-        failed = [r for r in results if r['label'] == -1]
-        
-        f.write(f"## 统计摘要\n\n")
-        f.write(f"- ✓ 可以自动合并: {len(can_merge)} 条\n")
-        f.write(f"- ✗ 不可以自动合并: {len(cannot_merge)} 条\n")
-        f.write(f"- ⚠ 标注失败: {len(failed)} 条\n\n")
-        f.write("=" * 80 + "\n\n")
-        
-        # 详细列表
-        if can_merge:
-            f.write("## ✓ 可以自动合并\n\n")
-            for item in can_merge:
-                f.write(f"### {item['mr_id']}\n")
-                f.write(f"**理由**: {item['reason']}\n\n")
-        
-        if cannot_merge:
-            f.write("## ✗ 不可以自动合并\n\n")
-            for item in cannot_merge:
-                f.write(f"### {item['mr_id']}\n")
-                f.write(f"**理由**: {item['reason']}\n\n")
-        
-        if failed:
-            f.write("## ⚠ 标注失败\n\n")
-            for item in failed:
-                f.write(f"### {item['mr_id']}\n")
-                f.write(f"**说明**: {item['reason']}\n\n")
+    """保存标注理由到CSV文件"""
+    df_reasons = pd.DataFrame(results)
+    df_reasons.to_csv(output_path, index=False, encoding='utf-8-sig')
 
 
 def main():
@@ -272,8 +239,8 @@ def main():
     print(f"\n已保存到: {LABELED_DATA_PATH}")
     print(f"原始数据未修改: {RAW_DATA_PATH}")
     
-    # 保存标注理由说明
-    reasons_path = os.path.join(os.path.dirname(LABELED_DATA_PATH), 'label_reasons.md')
+    # 保存标注理由
+    reasons_path = os.path.join(os.path.dirname(LABELED_DATA_PATH), 'label_reasons.csv')
     save_label_reasons(results, reasons_path)
     print(f"标注理由已保存到: {reasons_path}")
 
