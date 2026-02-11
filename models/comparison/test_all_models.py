@@ -17,13 +17,15 @@ import matplotlib.pyplot as plt
 from matplotlib import rcParams
 from config import *
 from utils.create_test_set import create_test_set
+from datetime import datetime
 
 # 设置中文字体
 rcParams['font.sans-serif'] = ['SimHei']
 rcParams['axes.unicode_minus'] = False
 
-# 结果目录
-RESULTS_DIR = f'{MODEL_DIR}/comparison/results'
+# 结果目录（带时间戳）
+timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+RESULTS_DIR = f'{MODEL_DIR}/comparison/results/{timestamp}'
 os.makedirs(RESULTS_DIR, exist_ok=True)
 
 # 模型配置

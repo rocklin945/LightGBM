@@ -39,8 +39,8 @@ def clean_model_results():
     # 模型列表
     models = ['lightgbm', 'logistic', 'svm', 'knn', 'random_forest', 'mlp']
     
-    # 1. 删除各个模型的结果
-    print("\n[1] 清理各模型训练结果...")
+    # 1. 删除各个模型的训练文件（不删除results文件夹）
+    print("\n[1] 清理各模型训练文件...")
     for model_name in models:
         model_dir = f'models/{model_name}'
         
@@ -58,21 +58,8 @@ def clean_model_results():
                 deleted_count += 1
             if delete_file(f'{model_dir}/scaler.pkl'):
                 deleted_count += 1
-        
-        # 删除 results 目录
-        results_dir = f'{model_dir}/results'
-        if os.path.exists(results_dir):
-            for file in os.listdir(results_dir):
-                if delete_file(os.path.join(results_dir, file)):
-                    deleted_count += 1
     
-    # 2. 删除模型对比结果
-    print("\n[2] 清理模型对比结果...")
-    comparison_dir = 'models/comparison/results'
-    if os.path.exists(comparison_dir):
-        for file in os.listdir(comparison_dir):
-            if delete_file(os.path.join(comparison_dir, file)):
-                deleted_count += 1
+    print("\n[2] results文件夹保留")
     
     # 3. 询问是否删除数据文件
     print("\n[3] 数据文件...")
