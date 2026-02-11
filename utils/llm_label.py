@@ -17,11 +17,6 @@ from collections import Counter
 # 禁用 SSL 警告（仅用于解决内部 API 的证书问题）
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-# API配置 - 从配置文件读取
-API_KEY = ''
-BASE_URL = 'https://coding.qunhequnhe.com'
-MODEL_NAME = 'qwen3-coder-30b'
-
 # 从配置文件读取
 config_file = os.path.join(os.path.dirname(__file__), '.llm_config')
 if os.path.exists(config_file):
@@ -37,7 +32,14 @@ if os.path.exists(config_file):
             elif line.startswith('MODEL='):
                 MODEL_NAME = line.split('=', 1)[1].strip()
 
-API_ENDPOINT = f"{BASE_URL}/v1/chat/completions"
+# 智能处理BASE_URL，避免重复/v1
+BASE_URL = BASE_URL.rstrip('/')  # 去掉末尾的斜杠
+if BASE_URL.endswith('/v1'):
+    # 如果BASE_URL已经包含/v1，直接使用
+    API_ENDPOINT = f"{BASE_URL}/chat/completions"
+else:
+    # 如果BASE_URL不包含/v1，添加/v1
+    API_ENDPOINT = f"{BASE_URL}/v1/chat/completions"
 
 # Token统计
 token_stats = {
@@ -77,18 +79,22 @@ def create_prompt(mr_data):
     return prompt
 
 
-def call_llm_api(prompt, model="gpt-4o-mini", max_retries=3):
+def call_llm_api(prompt, model=None, max_retries=3):
     """
     调用大模型API（带重试机制）
     
     参数:
         prompt: 提示词
-        model: 模型名称
+        model: 模型名称（默认使用配置文件中的MODEL_NAME）
         max_retries: 最大重试次数
     
     返回:
         response字典或None
     """
+    # 如果没有指定模型，使用配置文件中的模型
+    if model is None:
+        model = MODEL_NAME
+    
     headers = {
         "Content-Type": "application/json",
         "Authorization": f"Bearer {API_KEY}"
@@ -182,10 +188,42 @@ def parse_llm_response(response):
         (label, reason) 或 (None, None)
     """
     try:
-        if not response or 'choices' not in response:
+        if not response:
+            print(f"  ✗ 响应为空")
+            return None, None
+            
+        if 'choices' not in response:
+            print(f"  ✗ 响应中没有choices字段")
+            print(f"  响应keys: {list(response.keys())}")
+            print(f"  完整响应: {json.dumps(response, ensure_ascii=False)[:500]}")
             return None, None
         
-        content = response['choices'][0]['message']['content']
+        if not response['choices'] or len(response['choices']) == 0:
+            print(f"  ✗ choices为空")
+            return None, None
+            
+        choice = response['choices'][0]
+        if 'message' not in choice:
+            print(f"  ✗ choice中没有message字段")
+            print(f"  choice keys: {list(choice.keys())}")
+            return None, None
+            
+        content = choice['message']['content']
+        
+        # 打印原始内容用于调试
+        print(f"  [调试] API返回: {content[:200] if content else '(空)'}")
+        
+        if not content or content.strip() == '':
+            print(f"  ✗ 返回内容为空")
+            return None, None
+        
+        # 尝试清理content（有些API可能返回markdown格式的JSON）
+        content = content.strip()
+        if content.startswith('```json'):
+            content = content.replace('```json', '').replace('```', '').strip()
+        elif content.startswith('```'):
+            content = content.replace('```', '').strip()
+        
         result = json.loads(content)
         
         label = int(result.get('label', -1))
@@ -194,10 +232,18 @@ def parse_llm_response(response):
         if label in [0, 1]:
             return label, f"LLM:{reason}"
         else:
+            print(f"  ✗ label值无效: {label}")
             return None, None
             
+    except json.JSONDecodeError as e:
+        print(f"  ✗ JSON解析失败: {e}")
+        if 'content' in locals():
+            print(f"  原始内容: {content[:300]}")
+        return None, None
     except Exception as e:
-        print(f"  ✗ 解析响应失败: {e}")
+        print(f"  ✗ 解析响应异常: {e}")
+        if 'response' in locals():
+            print(f"  响应类型: {type(response)}")
         return None, None
 
 
@@ -254,8 +300,8 @@ def llm_label_batch(df, batch_size=5, skip_labeled=True):
             # 创建prompt
             prompt = create_prompt(row.to_dict())
             
-            # 调用API
-            response = call_llm_api(prompt, model=MODEL_NAME)
+            # 调用API（默认使用配置文件中的模型）
+            response = call_llm_api(prompt)
             
             if response:
                 label, reason = parse_llm_response(response)
@@ -394,10 +440,6 @@ def main():
     except:
         batch_size = 5
     
-    confirm = input(f"\n确认使用LLM标注 {unlabeled_count} 条数据？(y/n): ").strip().lower()
-    if confirm != 'y':
-        print("已取消")
-        return
     
     # LLM标注
     print("\n开始LLM标注...")
