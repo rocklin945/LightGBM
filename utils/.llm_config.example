@@ -2,4 +2,10 @@
 # 复制此文件为 .llm_config 并填入你的真实配置
 
 API_KEY=your-api-key-here
-BASE_URL=your-base-url-here
+BASE_URL=https://coding.qunhequnhe.com
+MODEL=gpt-4o-mini
+
+# 说明:
+# - API_KEY: 你的 OpenAI Compatible API Key
+# - BASE_URL: API 基础地址（不要包含 /v1 后缀）
+# - MODEL: 模型名称，可选值如 gpt-4o-mini, gpt-4o, gpt-3.5-turbo 等

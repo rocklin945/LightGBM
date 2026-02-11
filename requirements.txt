@@ -4,3 +4,5 @@ lightgbm
 scikit-learn
 tqdm
 matplotlib
+requests
+urllib3
