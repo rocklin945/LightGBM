@@ -136,6 +136,7 @@ def llm_label_batch(df, interval=0.5):
     
     success = 0
     failed = 0
+    results = []  # 记录所有标注结果和理由
     
     for idx in df.index:
         row = df.loc[idx]
@@ -147,22 +148,80 @@ def llm_label_batch(df, interval=0.5):
             if label is not None:
                 df.at[idx, TARGET] = label
                 success += 1
-                print(f"  [{idx+1}/{total}] MR-{idx+1:05d}: {'✓ 可合并' if label == 1 else '✗ 不可合并'} - {reason}")
+                result_text = '✓ 可合并' if label == 1 else '✗ 不可合并'
+                print(f"  [{idx+1}/{total}] MR-{idx+1:05d}: {result_text} - {reason}")
+                results.append({
+                    'mr_id': f"MR-{idx+1:05d}",
+                    'label': label,
+                    'result': result_text,
+                    'reason': reason
+                })
             else:
                 failed += 1
                 df.at[idx, TARGET] = -1
                 print(f"  [{idx+1}/{total}] MR-{idx+1:05d}: 解析失败")
+                results.append({
+                    'mr_id': f"MR-{idx+1:05d}",
+                    'label': -1,
+                    'result': '解析失败',
+                    'reason': '无法解析API响应'
+                })
         else:
             failed += 1
             df.at[idx, TARGET] = -1
             print(f"  [{idx+1}/{total}] MR-{idx+1:05d}: API失败")
+            results.append({
+                'mr_id': f"MR-{idx+1:05d}",
+                'label': -1,
+                'result': 'API失败',
+                'reason': 'API调用失败'
+            })
         
         # 每次请求后延迟
         if idx < total - 1:  # 最后一条不需要延迟
             time.sleep(interval)
     
     print(f"\n标注完成: 成功 {success} 条, 失败 {failed} 条")
-    return df
+    return df, results
+
+
+def save_label_reasons(results, output_path):
+    """保存标注理由到文件"""
+    with open(output_path, 'w', encoding='utf-8') as f:
+        f.write("# MR自动合并标注理由说明\n\n")
+        f.write(f"标注时间: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+        f.write(f"总计: {len(results)} 条\n\n")
+        f.write("=" * 80 + "\n\n")
+        
+        # 按标签分类统计
+        can_merge = [r for r in results if r['label'] == 1]
+        cannot_merge = [r for r in results if r['label'] == 0]
+        failed = [r for r in results if r['label'] == -1]
+        
+        f.write(f"## 统计摘要\n\n")
+        f.write(f"- ✓ 可以自动合并: {len(can_merge)} 条\n")
+        f.write(f"- ✗ 不可以自动合并: {len(cannot_merge)} 条\n")
+        f.write(f"- ⚠ 标注失败: {len(failed)} 条\n\n")
+        f.write("=" * 80 + "\n\n")
+        
+        # 详细列表
+        if can_merge:
+            f.write("## ✓ 可以自动合并\n\n")
+            for item in can_merge:
+                f.write(f"### {item['mr_id']}\n")
+                f.write(f"**理由**: {item['reason']}\n\n")
+        
+        if cannot_merge:
+            f.write("## ✗ 不可以自动合并\n\n")
+            for item in cannot_merge:
+                f.write(f"### {item['mr_id']}\n")
+                f.write(f"**理由**: {item['reason']}\n\n")
+        
+        if failed:
+            f.write("## ⚠ 标注失败\n\n")
+            for item in failed:
+                f.write(f"### {item['mr_id']}\n")
+                f.write(f"**说明**: {item['reason']}\n\n")
 
 
 def main():
@@ -196,7 +255,7 @@ def main():
         interval = 0.5
     
     # 开始标注
-    df = llm_label_batch(df, interval)
+    df, results = llm_label_batch(df, interval)
     
     # 统计结果
     can_merge = len(df[df[TARGET] == 1])
@@ -212,6 +271,11 @@ def main():
     df.to_csv(LABELED_DATA_PATH, index=False, encoding='utf-8-sig')
     print(f"\n已保存到: {LABELED_DATA_PATH}")
     print(f"原始数据未修改: {RAW_DATA_PATH}")
+    
+    # 保存标注理由说明
+    reasons_path = os.path.join(os.path.dirname(LABELED_DATA_PATH), 'label_reasons.md')
+    save_label_reasons(results, reasons_path)
+    print(f"标注理由已保存到: {reasons_path}")
 
 
 if __name__ == '__main__':
