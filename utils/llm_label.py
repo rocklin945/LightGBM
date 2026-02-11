@@ -62,7 +62,7 @@ def create_prompt(mr_data):
     return prompt
 
 
-def call_llm_api(prompt, max_retries=3):
+def call_llm_api(prompt, max_retries=10):
     """调用大模型API，失败自动重试"""
     headers = {
         "Content-Type": "application/json",
