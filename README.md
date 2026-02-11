@@ -25,7 +25,8 @@ LightGBM/
 │
 ├── utils/                        # 工具脚本
 │   ├── generate_data.py         # 统一数据生成（可控制数量）
-│   ├── auto_label.py            # 自动标注
+│   ├── auto_label.py            # 规则自动标注
+│   ├── llm_label.py             # LLM智能标注
 │   └── create_test_set.py       # 生成测试集
 │
 ├── models/                       # 所有模型
@@ -89,8 +90,9 @@ python utils/generate_data.py
 
 程序会询问生成数量，默认 500 条。
 
-### 3. 全自动标注
+### 3. 自动标注（两种方式）
 
+#### 方式A：规则标注（快速、免费）
 ```bash
 python utils/auto_label.py
 ```
@@ -98,6 +100,17 @@ python utils/auto_label.py
 使用规则和评分系统全自动标注所有数据，无需人工介入：
 - 规则标注：明确符合规则的数据
 - 评分标注：对不确定的数据进行评分判断（60分及以上可合并）
+
+#### 方式B：LLM标注（智能、需要API）
+```bash
+python utils/llm_label.py
+```
+
+使用大模型API进行智能标注：
+- 更智能的判断逻辑
+- 自动控制token消耗
+- 批量处理，提供详细统计
+- 适合对标注质量要求高的场景
 
 ### 4. 训练所有模型
 

@@ -1,0 +1,45 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+
+# Virtual Environment
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 数据文件
+data/raw_mr_data.csv
+data/labeled_data.csv
+data/train_data.csv
+data/test_data.csv
+data/test_sets/*.csv
+
+# 模型文件
+models/**/*.pkl
+models/**/*.txt
+models/**/results/*.png
+models/**/results/*.csv
+
+# 配置文件（包含敏感信息）
+utils/.llm_config
+.env
+*.key
+
+# 日志
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

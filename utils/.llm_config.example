@@ -1,0 +1,5 @@
+# LLM API 配置文件模板
+# 复制此文件为 .llm_config 并填入你的真实配置
+
+API_KEY=your-api-key-here
+BASE_URL=your-base-url-here
